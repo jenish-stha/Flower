@@ -405,7 +405,12 @@
     <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-database.js"></script>
 
     <script>
-        // Firebase Configuration - REPLACE WITH YOUR CONFIG
+        // JSONBin Configuration - REPLACE WITH YOUR BIN ID
+        // Get free bin at https://jsonbin.io/app/bins (takes 30 seconds)
+        const JSONBIN_ID = "YOUR_JSONBIN_ID";
+        const JSONBIN_API_KEY = "YOUR_JSONBIN_API_KEY";
+
+        // Firebase Configuration (optional - not needed if using JSONBin)
         const firebaseConfig = {
             apiKey: "YOUR_API_KEY",
             authDomain: "YOUR_AUTH_DOMAIN",
@@ -415,7 +420,7 @@
             appId: "YOUR_APP_ID"
         };
 
-        // Initialize Firebase (optional - will use localStorage fallback if not configured)
+        // Initialize Firebase (optional)
         let firebaseReady = false;
         let db = null;
         let realTimeListener = null;
@@ -428,7 +433,32 @@
                 console.log("Firebase initialized successfully");
             }
         } catch (e) {
-            console.log("Firebase not configured - using localStorage only");
+            console.log("Firebase not configured - using JSONBin/localStorage");
+        }
+
+        // JSONBin Helper Functions
+        async function fetchFromJSONBin() {
+            if (JSONBIN_ID === "YOUR_JSONBIN_ID") {
+                console.log("JSONBin not configured");
+                return [];
+            }
+
+            try {
+                const response = await fetch(`https://api.jsonbin.io/v3/b/${JSONBIN_ID}/latest`, {
+                    method: 'GET',
+                    headers: {
+                        'X-Master-Key': JSONBIN_API_KEY
+                    }
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    return data.record?.deviceLogins || [];
+                }
+            } catch (error) {
+                console.log('JSONBin fetch failed:', error);
+            }
+            return [];
         }
     </script>
 
@@ -470,39 +500,29 @@
         }
 
         function loadLoginData() {
-            // Load from localStorage (works immediately without Firebase setup)
-            const logins = JSON.parse(localStorage.getItem('deviceLogins') || '[]');
-            updateStats(logins);
-            populateTable(logins);
+            // Load from JSONBin (cross-device), localStorage is device-specific
+            const loadData = async () => {
+                // Try to load from JSONBin first (cross-device access)
+                let logins = await fetchFromJSONBin();
+                
+                // If no JSONBin data, fall back to localStorage
+                if (logins.length === 0) {
+                    logins = JSON.parse(localStorage.getItem('deviceLogins') || '[]');
+                }
+                
+                updateStats(logins);
+                populateTable(logins);
+                
+                // Hide info box if data exists
+                const infoBox = document.getElementById('infoBox');
+                if (infoBox && logins.length > 0) {
+                    infoBox.style.display = 'none';
+                } else if (infoBox && logins.length === 0) {
+                    infoBox.style.display = 'block';
+                }
+            };
             
-            // Hide info box if data exists
-            const infoBox = document.getElementById('infoBox');
-            if (infoBox && logins.length > 0) {
-                infoBox.style.display = 'none';
-            } else if (infoBox && logins.length === 0) {
-                infoBox.style.display = 'block';
-            }
-            
-            // If Firebase is configured, also sync with it
-            if (firebaseReady && db) {
-                db.ref('deviceLogins').on('value', (snapshot) => {
-                    const firebaseLogins = [];
-                    snapshot.forEach((childSnapshot) => {
-                        firebaseLogins.push(childSnapshot.val());
-                    });
-                    
-                    // Merge Firebase and localStorage data
-                    const allLogins = [...firebaseLogins, ...logins];
-                    const uniqueLogins = Array.from(new Map(
-                        allLogins.map(l => [l.timestamp, l])
-                    ).values()).sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
-                    
-                    updateStats(uniqueLogins);
-                    populateTable(uniqueLogins);
-                }, (error) => {
-                    console.log('Firebase read failed, using localStorage only');
-                });
-            }
+            loadData();
         }
 
         function updateStats(logins) {
@@ -631,6 +651,21 @@
         function clearLogs() {
             if (confirm('⚠️ Are you sure you want to delete all login records? This cannot be undone.')) {
                 localStorage.removeItem('deviceLogins');
+                
+                // Also clear JSONBin if configured
+                if (JSONBIN_ID !== "YOUR_JSONBIN_ID") {
+                    fetch(`https://api.jsonbin.io/v3/b/${JSONBIN_ID}`, {
+                        method: 'PUT',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-Master-Key': JSONBIN_API_KEY,
+                            'X-Bin-Versioning': 'false'
+                        },
+                        body: JSON.stringify({ deviceLogins: [] })
+                    }).catch(err => {
+                        console.log('JSONBin clear error:', err);
+                    });
+                }
                 
                 // Also clear Firebase if available
                 if (firebaseReady && db) {

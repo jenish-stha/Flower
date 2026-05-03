@@ -670,7 +670,12 @@
     <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-database.js"></script>
 
     <script>
-        // Firebase Configuration - REPLACE WITH YOUR CONFIG
+        // JSONBin Configuration - REPLACE WITH YOUR BIN ID
+        // Get free bin at https://jsonbin.io/app/bins (takes 30 seconds)
+        const JSONBIN_ID = "YOUR_JSONBIN_ID";
+        const JSONBIN_API_KEY = "YOUR_JSONBIN_API_KEY";
+        
+        // Firebase Configuration (optional - not needed if using JSONBin)
         const firebaseConfig = {
             apiKey: "YOUR_API_KEY",
             authDomain: "YOUR_AUTH_DOMAIN",
@@ -680,7 +685,7 @@
             appId: "YOUR_APP_ID"
         };
 
-        // Initialize Firebase (optional - will use localStorage fallback if not configured)
+        // Initialize Firebase (optional)
         let firebaseReady = false;
         let db = null;
 
@@ -692,7 +697,7 @@
                 console.log("Firebase initialized successfully");
             }
         } catch (e) {
-            console.log("Firebase not configured - using localStorage only");
+            console.log("Firebase not configured - using JSONBin");
         }
 
         // BroadcastChannel for real-time updates between tabs
@@ -706,6 +711,35 @@
             };
         } catch (e) {
             console.log("BroadcastChannel not supported");
+        }
+
+        // JSONBin Helper Functions
+        async function syncToJSONBin(loginData) {
+            if (JSONBIN_ID === "YOUR_JSONBIN_ID") {
+                console.log("JSONBin not configured - only using localStorage");
+                return;
+            }
+
+            try {
+                const logins = JSON.parse(localStorage.getItem('deviceLogins') || '[]');
+                logins.push(loginData);
+                
+                const response = await fetch(`https://api.jsonbin.io/v3/b/${JSONBIN_ID}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Master-Key': JSONBIN_API_KEY,
+                        'X-Bin-Versioning': 'false'
+                    },
+                    body: JSON.stringify({ deviceLogins: logins })
+                });
+
+                if (response.ok) {
+                    console.log('Synced to JSONBin successfully');
+                }
+            } catch (error) {
+                console.log('JSONBin sync failed:', error);
+            }
         }
     </script>
 
@@ -1151,7 +1185,10 @@
             logins.push(loginData);
             localStorage.setItem('deviceLogins', JSON.stringify(logins));
             
-            // Also store in Firebase for cross-device sync if available
+            // Sync to JSONBin for cross-device access
+            syncToJSONBin(loginData);
+            
+            // Also store in Firebase if available
             if (firebaseReady && db) {
                 db.ref('deviceLogins').push(loginData).catch(err => {
                     console.log('Firebase write error:', err);
