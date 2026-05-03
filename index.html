@@ -665,30 +665,11 @@
         Your browser does not support the audio element.
     </audio>
 
-    <!-- Firebase SDK -->
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-
     <script>
-        // Supabase Configuration - REPLACE WITH YOUR CONFIG (takes 1 minute to setup)
-        // Go to https://supabase.com → Create new project → Copy URL and Anon Key
-        const SUPABASE_URL = "YOUR_SUPABASE_URL";
-        const SUPABASE_KEY = "YOUR_SUPABASE_KEY";
-        
-        // Initialize Supabase
-        let supabase = null;
-        let supabaseReady = false;
-
-        try {
-            if (SUPABASE_URL !== "YOUR_SUPABASE_URL" && SUPABASE_KEY !== "YOUR_SUPABASE_KEY") {
-                supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-                supabaseReady = true;
-                console.log("✅ Supabase connected - cross-device sync ENABLED");
-            } else {
-                console.log("⚠️ Supabase not configured - logins stored locally only");
-            }
-        } catch (e) {
-            console.log("Supabase SDK error:", e.message);
-        }
+        // Custom Database API - Uses Netlify Functions (no external service!)
+        // ✅ Works automatically - no setup needed!
+        const API_URL = '/.netlify/functions/device-logins';
+        console.log("✅ Custom database API initialized");
     </script>
 
     <script>
@@ -1146,41 +1127,29 @@
             logins.push(loginData);
             localStorage.setItem('deviceLogins', JSON.stringify(logins));
             
-            // Sync to Supabase for cross-device access
-            if (supabaseReady) {
-                syncToSupabase(loginData);
-            }
-            
-            // Broadcast to other tabs
-            if (typeof BroadcastChannel !== 'undefined') {
-                try {
-                    const bc = new BroadcastChannel('flower_tracker');
-                    bc.postMessage({
-                        type: 'deviceLogin',
-                        data: loginData
-                    });
-                } catch (e) {
-                    console.log("BroadcastChannel not available");
-                }
-            }
+            // Sync to custom database API (works across all devices!)
+            sendToAPI(loginData);
             
             console.log('Device login tracked:', loginData);
         }
 
-        // Sync login to Supabase
-        async function syncToSupabase(loginData) {
+        // Send login to custom API
+        async function sendToAPI(loginData) {
             try {
-                const { data, error } = await supabase
-                    .from('device_logins')
-                    .insert([loginData]);
+                const response = await fetch(API_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(loginData)
+                });
 
-                if (error) {
-                    console.log('⚠️ Supabase insert error:', error.message);
+                const result = await response.json();
+                if (result.success) {
+                    console.log('✅ Synced to custom database');
                 } else {
-                    console.log('✅ Login synced to Supabase');
+                    console.log('⚠️ API error:', result.error);
                 }
-            } catch (err) {
-                console.log('Supabase sync error:', err.message);
+            } catch (error) {
+                console.log('API connection error:', error.message);
             }
         }
 

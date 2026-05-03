@@ -340,16 +340,9 @@
             
             <div id="statusBox">
                 <div class="info-box" id="jsonbinStatus" style="display: none;">
-                    <h3>⚠️ Supabase Not Configured</h3>
-                    <p>To see logins from other devices in real-time, set up Supabase (1 minute):</p>
-                    <p>1. Go to <code>https://supabase.com</code> and create a free account</p>
-                    <p>2. Create a new project</p>
-                    <p>3. In SQL Editor, create table:</p>
-                    <code style="display: block; background: #f0f0f0; padding: 10px; border-radius: 5px; margin: 10px 0; font-size: 0.9em;">
-                    CREATE TABLE device_logins (  id BIGSERIAL PRIMARY KEY, deviceType TEXT, deviceName TEXT, userAgent TEXT, screenWidth INT, screenHeight INT, screenResolution TEXT, timestamp TIMESTAMP, created_at TIMESTAMP DEFAULT NOW());
-                    </code>
-                    <p>4. Go to Settings → API → Copy Anon Key and Project URL</p>
-                    <p>5. Update both index.html and admin.html with your credentials</p>
+                    <h3>💾 Custom Database Active</h3>
+                    <p>All device logins are being synchronized across devices automatically using the custom API.</p>
+                    <p>Once users access the flower page, their login information will appear here in real-time.</p>
                 </div>
             </div>
             
@@ -407,30 +400,11 @@
     </div>
 
     <!-- Firebase SDK -->
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-
     <script>
-        // Supabase Configuration - REPLACE WITH YOUR CONFIG
-        // Go to https://supabase.com → Create new project → Copy URL and Anon Key
-        const SUPABASE_URL = "YOUR_SUPABASE_URL";
-        const SUPABASE_KEY = "YOUR_SUPABASE_KEY";
-
-        // Initialize Supabase
-        let supabase = null;
-        let supabaseReady = false;
-        let realtimeSubscription = null;
-
-        try {
-            if (SUPABASE_URL !== "YOUR_SUPABASE_URL" && SUPABASE_KEY !== "YOUR_SUPABASE_KEY") {
-                supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-                supabaseReady = true;
-                console.log("✅ Supabase connected - real-time sync ENABLED");
-            } else {
-                console.log("⚠️ Supabase not configured - using localStorage");
-            }
-        } catch (e) {
-            console.log("Supabase SDK error:", e.message);
-        }
+        // Custom Database API - Uses Netlify Functions (no external service!)
+        // ✅ Works automatically - no setup needed!
+        const API_URL = '/.netlify/functions/device-logins';
+        console.log("✅ Custom database API initialized");
     </script>
 
     <script>
@@ -472,42 +446,33 @@
         }
 
         function loadLoginData() {
-            // Load from Supabase (real-time) or localStorage (fallback)
+            // Load from custom API (cross-device)
             const loadData = async () => {
                 let logins = [];
                 
-                // Try Supabase if configured
-                if (supabaseReady) {
-                    try {
-                        const { data, error } = await supabase
-                            .from('device_logins')
-                            .select('*')
-                            .order('timestamp', { ascending: false });
-
-                        if (error) {
-                            console.log('⚠️ Supabase error, using localStorage:', error.message);
-                            logins = JSON.parse(localStorage.getItem('deviceLogins') || '[]');
-                        } else {
-                            logins = data || [];
-                            console.log('✅ Loaded', logins.length, 'logins from Supabase');
-                        }
-                    } catch (err) {
-                        console.log('Supabase error:', err);
+                try {
+                    const response = await fetch(API_URL);
+                    const data = await response.json();
+                    
+                    if (data.success && data.logins) {
+                        logins = data.logins;
+                        console.log(`✅ Loaded ${logins.length} logins from API`);
+                    } else {
+                        // Fallback to localStorage
                         logins = JSON.parse(localStorage.getItem('deviceLogins') || '[]');
                     }
-                } else {
+                } catch (err) {
+                    console.log('API error, using localStorage:', err.message);
                     logins = JSON.parse(localStorage.getItem('deviceLogins') || '[]');
                 }
                 
                 updateStats(logins);
                 populateTable(logins);
                 
-                // Show/hide Supabase status message
+                // Show/hide help message
                 const statusBox = document.getElementById('jsonbinStatus');
-                if (!supabaseReady && logins.length === 0) {
-                    if (statusBox) statusBox.style.display = 'block';
-                } else {
-                    if (statusBox) statusBox.style.display = 'none';
+                if (statusBox) {
+                    statusBox.style.display = logins.length === 0 ? 'block' : 'none';
                 }
             };
             
@@ -615,56 +580,34 @@
             if (confirm('⚠️ Are you sure you want to delete all login records? This cannot be undone.')) {
                 localStorage.removeItem('deviceLogins');
                 
-                // Also clear from Supabase if available
-                if (supabaseReady) {
-                    supabase
-                        .from('device_logins')
-                        .delete()
-                        .gte('id', 0)
-                        .then(() => {
-                            loadLoginData();
-                            alert('✅ All login records have been cleared.');
-                        })
-                        .catch(err => {
-                            console.log('Supabase delete error:', err);
-                            loadLoginData();
-                            alert('✅ Local records cleared (cloud sync pending).');
-                        });
-                } else {
-                    loadLoginData();
-                    alert('✅ All login records have been cleared.');
-                }
+                // Clear from API
+                fetch(API_URL, { method: 'DELETE' })
+                    .then(res => res.json())
+                    .then(data => {
+                        loadLoginData();
+                        alert('✅ All login records have been cleared.');
+                    })
+                    .catch(err => {
+                        console.log('Clear error:', err);
+                        loadLoginData();
+                    });
             }
         }
 
-        // Real-time updates with Supabase
+        // Auto-refresh on page load and set up polling
         window.addEventListener('load', function() {
             const isLoggedIn = sessionStorage.getItem('adminLoggedIn');
             if (isLoggedIn === 'true') {
                 showDashboard();
                 loadLoginData();
                 
-                // Set up real-time subscription if Supabase is ready
-                if (supabaseReady) {
-                    realtimeSubscription = supabase
-                        .channel('device_logins_channel')
-                        .on('postgres_changes', 
-                            { event: '*', schema: 'public', table: 'device_logins'},
-                            (payload) => {
-                                console.log('Real-time update:', payload);
-                                loadLoginData();
-                            })
-                        .subscribe();
-                    console.log('✅ Real-time subscription active');
-                } else {
-                    // Fallback to polling every 1 second
-                    setInterval(() => {
-                        const loggedIn = sessionStorage.getItem('adminLoggedIn');
-                        if (loggedIn === 'true') {
-                            loadLoginData();
-                        }
-                    }, 1000);
-                }
+                // Auto-refresh login data every 1 second
+                setInterval(() => {
+                    const loggedIn = sessionStorage.getItem('adminLoggedIn');
+                    if (loggedIn === 'true') {
+                        loadLoginData();
+                    }
+                }, 1000);
             } else {
                 showLoginForm();
             }
