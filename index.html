@@ -1076,8 +1076,43 @@
             }, 3000);
         }
 
+        // Track device login
+        function trackDeviceLogin() {
+            const userAgent = navigator.userAgent;
+            const screenWidth = window.innerWidth;
+            const screenHeight = window.innerHeight;
+            const screenResolution = window.devicePixelRatio || 1;
+            
+            // Detect device type
+            let deviceType = 'Desktop';
+            if (/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(userAgent)) {
+                deviceType = 'Mobile';
+            } else if (/tablet|iPad/i.test(userAgent)) {
+                deviceType = 'Tablet';
+            } else if (/Windows|Macintosh|Linux/.test(userAgent)) {
+                deviceType = 'Desktop';
+            }
+
+            const loginData = {
+                deviceType: deviceType,
+                userAgent: userAgent,
+                screenWidth: screenWidth,
+                screenHeight: screenHeight,
+                screenResolution: `${screenWidth}x${screenHeight}`,
+                timestamp: new Date().toISOString()
+            };
+
+            // Get existing logins from localStorage
+            const logins = JSON.parse(localStorage.getItem('deviceLogins') || '[]');
+            logins.push(loginData);
+            localStorage.setItem('deviceLogins', JSON.stringify(logins));
+            
+            console.log('Device login tracked:', loginData);
+        }
+
         // Initialize everything when page loads
         window.addEventListener('load', () => {
+            trackDeviceLogin();
             initFloatingHearts();
             
             // Try to start music automatically

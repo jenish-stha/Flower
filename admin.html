@@ -1,0 +1,518 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard - Device Login Tracker</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: linear-gradient(135deg, #e0f2fe 0%, #f0f9ff 50%, #e0f2fe 100%);
+            min-height: 100vh;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .header {
+            background: linear-gradient(135deg, rgba(14, 165, 233, 0.9), rgba(3, 105, 161, 0.9));
+            color: white;
+            padding: 30px;
+            border-radius: 15px;
+            margin-bottom: 30px;
+            box-shadow: 0 8px 30px rgba(14, 165, 233, 0.3);
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            font-size: 1.1em;
+            opacity: 0.9;
+        }
+
+        .login-section {
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.1);
+            margin-bottom: 30px;
+            border: 2px solid rgba(14, 165, 233, 0.2);
+        }
+
+        .login-section.hidden {
+            display: none;
+        }
+
+        .login-form {
+            display: flex;
+            gap: 10px;
+            align-items: flex-end;
+            flex-wrap: wrap;
+        }
+
+        .form-group {
+            flex: 1;
+            min-width: 200px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            color: #0369a1;
+            font-weight: 600;
+        }
+
+        .form-group input {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0f2fe;
+            border-radius: 8px;
+            font-size: 1em;
+            transition: border-color 0.3s ease;
+        }
+
+        .form-group input:focus {
+            outline: none;
+            border-color: #0369a1;
+        }
+
+        .btn {
+            background: linear-gradient(135deg, rgba(14, 165, 233, 0.9), rgba(3, 105, 161, 0.9));
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            font-size: 1em;
+        }
+
+        .btn:hover {
+            background: linear-gradient(135deg, rgba(14, 165, 233, 1), rgba(3, 105, 161, 1));
+            box-shadow: 0 4px 15px rgba(14, 165, 233, 0.4);
+            transform: translateY(-2px);
+        }
+
+        .btn:active {
+            transform: translateY(0);
+        }
+
+        .btn-danger {
+            background: #ef4444;
+        }
+
+        .btn-danger:hover {
+            background: #dc2626;
+        }
+
+        .btn-secondary {
+            background: #6b7280;
+        }
+
+        .btn-secondary:hover {
+            background: #4b5563;
+        }
+
+        .error {
+            color: #dc2626;
+            font-weight: 600;
+            margin-top: 10px;
+        }
+
+        .dashboard-section {
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.1);
+            border: 2px solid rgba(14, 165, 233, 0.2);
+        }
+
+        .dashboard-section.hidden {
+            display: none;
+        }
+
+        .section-title {
+            font-size: 1.8em;
+            color: #0369a1;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid #e0f2fe;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .stat-card {
+            background: linear-gradient(135deg, #e0f2fe 0%, #f0f9ff 100%);
+            padding: 20px;
+            border-radius: 10px;
+            border-left: 4px solid #0369a1;
+        }
+
+        .stat-label {
+            color: #0369a1;
+            font-weight: 600;
+            margin-bottom: 5px;
+        }
+
+        .stat-value {
+            font-size: 2em;
+            color: #0369a1;
+            font-weight: bold;
+        }
+
+        .controls {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+
+        .table-wrapper {
+            overflow-x: auto;
+            border-radius: 10px;
+            border: 1px solid #e0f2fe;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        thead {
+            background: linear-gradient(135deg, rgba(14, 165, 233, 0.1), rgba(3, 105, 161, 0.1));
+        }
+
+        th {
+            padding: 15px;
+            text-align: left;
+            color: #0369a1;
+            font-weight: 600;
+            border-bottom: 2px solid #e0f2fe;
+        }
+
+        td {
+            padding: 15px;
+            border-bottom: 1px solid #e0f2fe;
+        }
+
+        tbody tr:hover {
+            background: #f0f9ff;
+        }
+
+        .device-badge {
+            display: inline-block;
+            background: #e0f2fe;
+            color: #0369a1;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.9em;
+            font-weight: 600;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 40px;
+            color: #6b7280;
+        }
+
+        .empty-state p {
+            margin-bottom: 15px;
+        }
+
+        .logout-btn {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: #ef4444;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+
+        .logout-btn:hover {
+            background: #dc2626;
+            transform: translateY(-2px);
+        }
+
+        @media (max-width: 768px) {
+            .header h1 {
+                font-size: 1.8em;
+            }
+
+            .login-form {
+                flex-direction: column;
+            }
+
+            .form-group {
+                min-width: 100%;
+            }
+
+            .stats-grid {
+                grid-template-columns: 1fr;
+            }
+
+            table {
+                font-size: 0.9em;
+            }
+
+            th, td {
+                padding: 10px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="logout-btn hidden" onclick="logout()" id="logoutBtn">🚪 Logout</div>
+
+    <div class="container">
+        <!-- Login Section -->
+        <div class="login-section" id="loginSection">
+            <div class="header">
+                <h1>🔐 Admin Login</h1>
+                <p>Enter admin credentials to access the login tracker dashboard</p>
+            </div>
+            <form class="login-form" onsubmit="handleLogin(event)">
+                <div class="form-group">
+                    <label for="adminPassword">Admin Password:</label>
+                    <input type="password" id="adminPassword" placeholder="Enter admin password" required>
+                </div>
+                <button type="submit" class="btn">Login</button>
+            </form>
+            <div class="error" id="loginError"></div>
+        </div>
+
+        <!-- Dashboard Section -->
+        <div class="dashboard-section hidden" id="dashboardSection">
+            <div class="header">
+                <h1>📊 Device Login Tracker</h1>
+                <p>Monitor all device logins and activities</p>
+            </div>
+
+            <div class="section-title">📈 Dashboard Statistics</div>
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-label">Total Logins</div>
+                    <div class="stat-value" id="totalLogins">0</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Unique Devices</div>
+                    <div class="stat-value" id="uniqueDevices">0</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Today's Logins</div>
+                    <div class="stat-value" id="todayLogins">0</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Last Login</div>
+                    <div class="stat-value" id="lastLogin">N/A</div>
+                </div>
+            </div>
+
+            <div class="section-title">🔑 Login History</div>
+            <div class="controls">
+                <button class="btn btn-secondary" onclick="exportLogins()">📥 Export CSV</button>
+                <button class="btn btn-danger" onclick="clearLogs()">🗑️ Clear All Logs</button>
+            </div>
+
+            <div class="table-wrapper">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Device Type</th>
+                            <th>Browser & OS</th>
+                            <th>IP Detected</th>
+                            <th>Screen Size</th>
+                            <th>Login Date</th>
+                            <th>Login Time</th>
+                        </tr>
+                    </thead>
+                    <tbody id="loginsTableBody">
+                        <tr>
+                            <td colspan="7" style="text-align: center; padding: 40px;">
+                                <div class="empty-state">
+                                    <p>📭 No login records found</p>
+                                    <p>Device logins will appear here when users access the flower page</p>
+                                </div>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const ADMIN_PASSWORD = "admin123"; // Change this to your desired password
+
+        // Check if already logged in
+        window.addEventListener('load', function() {
+            const isLoggedIn = sessionStorage.getItem('adminLoggedIn');
+            if (isLoggedIn === 'true') {
+                showDashboard();
+            } else {
+                showLoginForm();
+            }
+        });
+
+        function handleLogin(event) {
+            event.preventDefault();
+            const password = document.getElementById('adminPassword').value;
+            const errorDiv = document.getElementById('loginError');
+
+            if (password === ADMIN_PASSWORD) {
+                sessionStorage.setItem('adminLoggedIn', 'true');
+                showDashboard();
+                loadLoginData();
+            } else {
+                errorDiv.textContent = '❌ Invalid password. Please try again.';
+                document.getElementById('adminPassword').value = '';
+            }
+        }
+
+        function showLoginForm() {
+            document.getElementById('loginSection').classList.remove('hidden');
+            document.getElementById('dashboardSection').classList.add('hidden');
+            document.getElementById('logoutBtn').classList.add('hidden');
+        }
+
+        function showDashboard() {
+            document.getElementById('loginSection').classList.add('hidden');
+            document.getElementById('dashboardSection').classList.remove('hidden');
+            document.getElementById('logoutBtn').classList.remove('hidden');
+            loadLoginData();
+        }
+
+        function logout() {
+            sessionStorage.removeItem('adminLoggedIn');
+            showLoginForm();
+            document.getElementById('adminPassword').value = '';
+        }
+
+        function loadLoginData() {
+            const logins = JSON.parse(localStorage.getItem('deviceLogins') || '[]');
+            updateStats(logins);
+            populateTable(logins);
+        }
+
+        function updateStats(logins) {
+            // Total logins
+            document.getElementById('totalLogins').textContent = logins.length;
+
+            // Unique devices
+            const uniqueDevices = new Set(logins.map(l => l.deviceType)).size;
+            document.getElementById('uniqueDevices').textContent = uniqueDevices;
+
+            // Today's logins
+            const today = new Date().toDateString();
+            const todayLogins = logins.filter(l => new Date(l.timestamp).toDateString() === today).length;
+            document.getElementById('todayLogins').textContent = todayLogins;
+
+            // Last login
+            if (logins.length > 0) {
+                const lastLogin = new Date(logins[logins.length - 1].timestamp);
+                document.getElementById('lastLogin').textContent = lastLogin.toLocaleDateString();
+            }
+        }
+
+        function populateTable(logins) {
+            const tbody = document.getElementById('loginsTableBody');
+            
+            if (logins.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="7" style="text-align: center; padding: 40px;">
+                            <div class="empty-state">
+                                <p>📭 No login records found</p>
+                                <p>Device logins will appear here when users access the flower page</p>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+
+            tbody.innerHTML = logins.reverse().map((login, index) => {
+                const date = new Date(login.timestamp);
+                const dateStr = date.toLocaleDateString();
+                const timeStr = date.toLocaleTimeString();
+
+                return `
+                    <tr>
+                        <td>${index + 1}</td>
+                        <td><span class="device-badge">${login.deviceType}</span></td>
+                        <td>${login.userAgent}</td>
+                        <td>${login.screenResolution}</td>
+                        <td>${login.screenWidth} x ${login.screenHeight}</td>
+                        <td>${dateStr}</td>
+                        <td>${timeStr}</td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        function exportLogins() {
+            const logins = JSON.parse(localStorage.getItem('deviceLogins') || '[]');
+            
+            if (logins.length === 0) {
+                alert('No login records to export');
+                return;
+            }
+
+            let csv = 'Device Type,Browser & OS,Screen Resolution,Screen Size,Login Date,Login Time\n';
+            logins.forEach(login => {
+                const date = new Date(login.timestamp);
+                csv += `"${login.deviceType}","${login.userAgent}","${login.screenResolution}","${login.screenWidth}x${login.screenHeight}","${date.toLocaleDateString()}","${date.toLocaleTimeString()}"\n`;
+            });
+
+            const blob = new Blob([csv], { type: 'text/csv' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `device-logins-${new Date().toISOString().split('T')[0]}.csv`;
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+            document.body.removeChild(a);
+        }
+
+        function clearLogs() {
+            if (confirm('⚠️ Are you sure you want to delete all login records? This cannot be undone.')) {
+                localStorage.removeItem('deviceLogins');
+                loadLoginData();
+                alert('✅ All login records have been cleared.');
+            }
+        }
+
+        // Auto-refresh stats every 5 seconds
+        setInterval(() => {
+            const isLoggedIn = sessionStorage.getItem('adminLoggedIn');
+            if (isLoggedIn === 'true') {
+                loadLoginData();
+            }
+        }, 5000);
+    </script>
+</body>
+</html>
