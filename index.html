@@ -665,6 +665,50 @@
         Your browser does not support the audio element.
     </audio>
 
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-database.js"></script>
+
+    <script>
+        // Firebase Configuration - REPLACE WITH YOUR CONFIG
+        const firebaseConfig = {
+            apiKey: "YOUR_API_KEY",
+            authDomain: "YOUR_AUTH_DOMAIN",
+            projectId: "YOUR_PROJECT_ID",
+            storageBucket: "YOUR_STORAGE_BUCKET",
+            messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
+            appId: "YOUR_APP_ID"
+        };
+
+        // Initialize Firebase (optional - will use localStorage fallback if not configured)
+        let firebaseReady = false;
+        let db = null;
+
+        try {
+            if (firebaseConfig.apiKey !== "YOUR_API_KEY") {
+                firebase.initializeApp(firebaseConfig);
+                db = firebase.database();
+                firebaseReady = true;
+                console.log("Firebase initialized successfully");
+            }
+        } catch (e) {
+            console.log("Firebase not configured - using localStorage only");
+        }
+
+        // BroadcastChannel for real-time updates between tabs
+        let bc = null;
+        try {
+            bc = new BroadcastChannel('flower_tracker');
+            bc.onmessage = (event) => {
+                if (event.data.type === 'deviceLogin') {
+                    console.log("Device login from another tab:", event.data);
+                }
+            };
+        } catch (e) {
+            console.log("BroadcastChannel not supported");
+        }
+    </script>
+
     <script>
         // Sweet messages array
         const messages = [
@@ -1102,10 +1146,25 @@
                 timestamp: new Date().toISOString()
             };
 
-            // Get existing logins from localStorage
+            // Store in localStorage (always)
             const logins = JSON.parse(localStorage.getItem('deviceLogins') || '[]');
             logins.push(loginData);
             localStorage.setItem('deviceLogins', JSON.stringify(logins));
+            
+            // Also store in Firebase for cross-device sync if available
+            if (firebaseReady && db) {
+                db.ref('deviceLogins').push(loginData).catch(err => {
+                    console.log('Firebase write error:', err);
+                });
+            }
+            
+            // Broadcast to other tabs
+            if (bc) {
+                bc.postMessage({
+                    type: 'deviceLogin',
+                    data: loginData
+                });
+            }
             
             console.log('Device login tracked:', loginData);
         }
