@@ -378,7 +378,8 @@
                             <th>#</th>
                             <th>Device Type</th>
                             <th>Device Name</th>
-                            <th>Browser & OS</th>
+                            <th>Browser</th>
+                            <th>Operating System</th>
                             <th>Screen Size</th>
                             <th>Login Date</th>
                             <th>Login Time</th>
@@ -505,7 +506,7 @@
             if (logins.length === 0) {
                 tbody.innerHTML = `
                     <tr>
-                        <td colspan="7" style="text-align: center; padding: 40px;">
+                        <td colspan="8" style="text-align: center; padding: 40px;">
                             <div class="empty-state">
                                 <p>📭 No login records found</p>
                                 <p>Device logins will appear here when users access the flower page</p>
@@ -531,18 +532,63 @@
                 return '💻 Unknown Device';
             }
 
+            // Function to parse browser name from userAgent
+            function getBrowserName(userAgent) {
+                if (/Edg\//.test(userAgent)) return 'Microsoft Edge';
+                if (/Chrome\//.test(userAgent) && !/Chromium/.test(userAgent)) return 'Google Chrome';
+                if (/Safari\//.test(userAgent) && !/Chrome/.test(userAgent)) return 'Safari';
+                if (/Firefox\//.test(userAgent)) return 'Mozilla Firefox';
+                if (/MSIE|Trident\//.test(userAgent)) return 'Internet Explorer';
+                if (/Opera|OPR\//.test(userAgent)) return 'Opera';
+                if (/Brave\//.test(userAgent)) return 'Brave';
+                return 'Unknown Browser';
+            }
+
+            // Function to parse OS name from userAgent
+            function getOSName(userAgent) {
+                if (/Windows NT 10\.0/.test(userAgent)) return 'Windows 11';
+                if (/Windows NT 6\.3/.test(userAgent)) return 'Windows 8.1';
+                if (/Windows NT 6\.2/.test(userAgent)) return 'Windows 8';
+                if (/Windows NT 6\.1/.test(userAgent)) return 'Windows 7';
+                if (/Windows/.test(userAgent)) return 'Windows';
+                if (/Macintosh/.test(userAgent)) {
+                    if (/OS X 10_15/.test(userAgent)) return 'macOS Catalina';
+                    if (/OS X 10_14/.test(userAgent)) return 'macOS Mojave';
+                    if (/OS X 10_13/.test(userAgent)) return 'macOS High Sierra';
+                    if (/OS X 10_12/.test(userAgent)) return 'macOS Sierra';
+                    if (/Mac OS X/.test(userAgent)) return 'Mac OS X';
+                    return 'macOS';
+                }
+                if (/iPhone OS|iOS/.test(userAgent)) {
+                    const match = userAgent.match(/OS (\d+_\d+)/);
+                    if (match) return `iOS ${match[1].replace('_', '.')}`;
+                    return 'iOS';
+                }
+                if (/Android/.test(userAgent)) {
+                    const match = userAgent.match(/Android (\d+\.?\d*)/);
+                    if (match) return `Android ${match[1]}`;
+                    return 'Android';
+                }
+                if (/Linux/.test(userAgent)) return 'Linux';
+                if (/X11/.test(userAgent)) return 'Unix';
+                return 'Unknown OS';
+            }
+
             tbody.innerHTML = logins.reverse().map((login, index) => {
                 const date = new Date(login.timestamp);
                 const dateStr = date.toLocaleDateString();
                 const timeStr = date.toLocaleTimeString();
                 const deviceName = getDeviceName(login.userAgent);
+                const browser = getBrowserName(login.userAgent);
+                const os = getOSName(login.userAgent);
 
                 return `
                     <tr>
                         <td>${index + 1}</td>
                         <td><span class="device-badge">${login.deviceType}</span></td>
                         <td>${deviceName}</td>
-                        <td>${login.userAgent}</td>
+                        <td>${browser}</td>
+                        <td>${os}</td>
                         <td>${login.screenWidth} x ${login.screenHeight}</td>
                         <td>${dateStr}</td>
                         <td>${timeStr}</td>
@@ -559,10 +605,35 @@
                 return;
             }
 
-            let csv = 'Device Type,Browser & OS,Screen Resolution,Screen Size,Login Date,Login Time\n';
+            // Helper functions
+            function getBrowserName(userAgent) {
+                if (/Edg\//.test(userAgent)) return 'Microsoft Edge';
+                if (/Chrome\//.test(userAgent) && !/Chromium/.test(userAgent)) return 'Google Chrome';
+                if (/Safari\//.test(userAgent) && !/Chrome/.test(userAgent)) return 'Safari';
+                if (/Firefox\//.test(userAgent)) return 'Mozilla Firefox';
+                if (/MSIE|Trident\//.test(userAgent)) return 'Internet Explorer';
+                return 'Unknown Browser';
+            }
+
+            function getOSName(userAgent) {
+                if (/Windows NT 10\.0/.test(userAgent)) return 'Windows 11';
+                if (/Windows NT 6\.3/.test(userAgent)) return 'Windows 8.1';
+                if (/Windows NT 6\.2/.test(userAgent)) return 'Windows 8';
+                if (/Windows NT 6\.1/.test(userAgent)) return 'Windows 7';
+                if (/Windows/.test(userAgent)) return 'Windows';
+                if (/Macintosh/.test(userAgent)) return 'macOS';
+                if (/iPhone OS|iOS/.test(userAgent)) return 'iOS';
+                if (/Android/.test(userAgent)) return 'Android';
+                if (/Linux/.test(userAgent)) return 'Linux';
+                return 'Unknown OS';
+            }
+
+            let csv = 'Device Type,Browser,Operating System,Screen Resolution,Login Date,Login Time\n';
             logins.forEach(login => {
                 const date = new Date(login.timestamp);
-                csv += `"${login.deviceType}","${login.userAgent}","${login.screenResolution}","${login.screenWidth}x${login.screenHeight}","${date.toLocaleDateString()}","${date.toLocaleTimeString()}"\n`;
+                const browser = getBrowserName(login.userAgent);
+                const os = getOSName(login.userAgent);
+                csv += `"${login.deviceType}","${browser}","${os}","${login.screenWidth}x${login.screenHeight}","${date.toLocaleDateString()}","${date.toLocaleTimeString()}"\n`;
             });
 
             const blob = new Blob([csv], { type: 'text/csv' });
