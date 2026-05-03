@@ -338,13 +338,17 @@
 
             <div class="section-title">📈 Dashboard Statistics</div>
             
-            <div class="info-box" id="infoBox">
-                <h3>ℹ️ How to track devices:</h3>
-                <p>1. Open the <code>index.html</code> page (flower page)</p>
-                <p>2. Click anywhere to create flowers</p>
-                <p>3. Return to this admin panel to see the login tracked</p>
+            <div id="statusBox">
+                <div class="info-box" id="jsonbinStatus" style="display: none;">
+                    <h3>⚠️ JSONBin Not Configured</h3>
+                    <p>To see logins from other devices, set up JSONBin:</p>
+                    <p>1. Go to <code>https://jsonbin.io</code></p>
+                    <p>2. Create a new bin with: <code>{"deviceLogins": []}</code></p>
+                    <p>3. Get your Bin ID and API Key</p>
+                    <p>4. Update both index.html and admin.html with your credentials</p>
+                </div>
             </div>
-
+            
             <div class="stats-grid">
                 <div class="stat-card">
                     <div class="stat-label">Total Logins</div>
@@ -437,7 +441,7 @@
         // JSONBin Helper Functions
         async function fetchFromJSONBin() {
             if (JSONBIN_ID === "YOUR_JSONBIN_ID") {
-                console.log("JSONBin not configured");
+                console.log("JSONBin not configured - using localStorage only");
                 return [];
             }
 
@@ -451,10 +455,14 @@
 
                 if (response.ok) {
                     const data = await response.json();
-                    return data.record?.deviceLogins || [];
+                    const logins = data.record?.deviceLogins || [];
+                    console.log('Fetched from JSONBin:', logins.length, 'logins');
+                    return logins;
+                } else {
+                    console.log('JSONBin fetch error:', response.status);
                 }
             } catch (error) {
-                console.log('JSONBin fetch failed:', error);
+                console.log('JSONBin connection error:', error.message);
             }
             return [];
         }
@@ -499,26 +507,34 @@
         }
 
         function loadLoginData() {
-            // Load from JSONBin (cross-device), localStorage is device-specific
+            // Load from JSONBin first (cross-device), then localStorage (fallback)
             const loadData = async () => {
-                // Try to load from JSONBin first (cross-device access)
-                let logins = await fetchFromJSONBin();
+                let logins = [];
+                let usingJSONBin = false;
                 
-                // If no JSONBin data, fall back to localStorage
+                // Try JSONBin if configured
+                if (JSONBIN_ID !== "YOUR_JSONBIN_ID") {
+                    logins = await fetchFromJSONBin();
+                    if (logins.length > 0) {
+                        usingJSONBin = true;
+                    }
+                }
+                
+                // If no JSONBin data, also check localStorage
                 if (logins.length === 0) {
                     logins = JSON.parse(localStorage.getItem('deviceLogins') || '[]');
                 }
                 
+                // Show/hide JSONBin status message
+                const statusBox = document.getElementById('jsonbinStatus');
+                if (JSONBIN_ID === "YOUR_JSONBIN_ID" && logins.length === 0) {
+                    if (statusBox) statusBox.style.display = 'block';
+                } else {
+                    if (statusBox) statusBox.style.display = 'none';
+                }
+                
                 updateStats(logins);
                 populateTable(logins);
-                
-                // Hide info box if data exists
-                const infoBox = document.getElementById('infoBox');
-                if (infoBox && logins.length > 0) {
-                    infoBox.style.display = 'none';
-                } else if (infoBox && logins.length === 0) {
-                    infoBox.style.display = 'block';
-                }
             };
             
             loadData();
@@ -658,13 +674,13 @@
             if (isLoggedIn === 'true') {
                 showDashboard();
                 loadLoginData();
-                // Auto-refresh every 2 seconds
+                // Auto-refresh every 1 second for real-time updates
                 setInterval(() => {
                     const loggedIn = sessionStorage.getItem('adminLoggedIn');
                     if (loggedIn === 'true') {
                         loadLoginData();
                     }
-                }, 2000);
+                }, 1000);
             } else {
                 showLoginForm();
             }
