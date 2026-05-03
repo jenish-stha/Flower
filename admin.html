@@ -340,12 +340,16 @@
             
             <div id="statusBox">
                 <div class="info-box" id="jsonbinStatus" style="display: none;">
-                    <h3>⚠️ JSONBin Not Configured</h3>
-                    <p>To see logins from other devices, set up JSONBin:</p>
-                    <p>1. Go to <code>https://jsonbin.io</code></p>
-                    <p>2. Create a new bin with: <code>{"deviceLogins": []}</code></p>
-                    <p>3. Get your Bin ID and API Key</p>
-                    <p>4. Update both index.html and admin.html with your credentials</p>
+                    <h3>⚠️ Supabase Not Configured</h3>
+                    <p>To see logins from other devices in real-time, set up Supabase (1 minute):</p>
+                    <p>1. Go to <code>https://supabase.com</code> and create a free account</p>
+                    <p>2. Create a new project</p>
+                    <p>3. In SQL Editor, create table:</p>
+                    <code style="display: block; background: #f0f0f0; padding: 10px; border-radius: 5px; margin: 10px 0; font-size: 0.9em;">
+                    CREATE TABLE device_logins (  id BIGSERIAL PRIMARY KEY, deviceType TEXT, deviceName TEXT, userAgent TEXT, screenWidth INT, screenHeight INT, screenResolution TEXT, timestamp TIMESTAMP, created_at TIMESTAMP DEFAULT NOW());
+                    </code>
+                    <p>4. Go to Settings → API → Copy Anon Key and Project URL</p>
+                    <p>5. Update both index.html and admin.html with your credentials</p>
                 </div>
             </div>
             
@@ -403,68 +407,29 @@
     </div>
 
     <!-- Firebase SDK -->
-    <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-app.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-database.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
     <script>
-        // JSONBin Configuration - REPLACE WITH YOUR BIN ID
-        // Get free bin at https://jsonbin.io/app/bins (takes 30 seconds)
-        const JSONBIN_ID = "YOUR_JSONBIN_ID";
-        const JSONBIN_API_KEY = "YOUR_JSONBIN_API_KEY";
+        // Supabase Configuration - REPLACE WITH YOUR CONFIG
+        // Go to https://supabase.com → Create new project → Copy URL and Anon Key
+        const SUPABASE_URL = "YOUR_SUPABASE_URL";
+        const SUPABASE_KEY = "YOUR_SUPABASE_KEY";
 
-        // Firebase Configuration (optional - not needed if using JSONBin)
-        const firebaseConfig = {
-            apiKey: "YOUR_API_KEY",
-            authDomain: "YOUR_AUTH_DOMAIN",
-            projectId: "YOUR_PROJECT_ID",
-            storageBucket: "YOUR_STORAGE_BUCKET",
-            messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
-            appId: "YOUR_APP_ID"
-        };
-
-        // Initialize Firebase (optional)
-        let firebaseReady = false;
-        let db = null;
-        let realTimeListener = null;
+        // Initialize Supabase
+        let supabase = null;
+        let supabaseReady = false;
+        let realtimeSubscription = null;
 
         try {
-            if (firebaseConfig.apiKey !== "YOUR_API_KEY") {
-                firebase.initializeApp(firebaseConfig);
-                db = firebase.database();
-                firebaseReady = true;
-                console.log("Firebase initialized successfully");
+            if (SUPABASE_URL !== "YOUR_SUPABASE_URL" && SUPABASE_KEY !== "YOUR_SUPABASE_KEY") {
+                supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+                supabaseReady = true;
+                console.log("✅ Supabase connected - real-time sync ENABLED");
+            } else {
+                console.log("⚠️ Supabase not configured - using localStorage");
             }
         } catch (e) {
-            console.log("Firebase not configured - using JSONBin/localStorage");
-        }
-
-        // JSONBin Helper Functions
-        async function fetchFromJSONBin() {
-            if (JSONBIN_ID === "YOUR_JSONBIN_ID") {
-                console.log("JSONBin not configured - using localStorage only");
-                return [];
-            }
-
-            try {
-                const response = await fetch(`https://api.jsonbin.io/v3/b/${JSONBIN_ID}/latest`, {
-                    method: 'GET',
-                    headers: {
-                        'X-Master-Key': JSONBIN_API_KEY
-                    }
-                });
-
-                if (response.ok) {
-                    const data = await response.json();
-                    const logins = data.record?.deviceLogins || [];
-                    console.log('Fetched from JSONBin:', logins.length, 'logins');
-                    return logins;
-                } else {
-                    console.log('JSONBin fetch error:', response.status);
-                }
-            } catch (error) {
-                console.log('JSONBin connection error:', error.message);
-            }
-            return [];
+            console.log("Supabase SDK error:", e.message);
         }
     </script>
 
@@ -507,34 +472,43 @@
         }
 
         function loadLoginData() {
-            // Load from JSONBin first (cross-device), then localStorage (fallback)
+            // Load from Supabase (real-time) or localStorage (fallback)
             const loadData = async () => {
                 let logins = [];
-                let usingJSONBin = false;
                 
-                // Try JSONBin if configured
-                if (JSONBIN_ID !== "YOUR_JSONBIN_ID") {
-                    logins = await fetchFromJSONBin();
-                    if (logins.length > 0) {
-                        usingJSONBin = true;
+                // Try Supabase if configured
+                if (supabaseReady) {
+                    try {
+                        const { data, error } = await supabase
+                            .from('device_logins')
+                            .select('*')
+                            .order('timestamp', { ascending: false });
+
+                        if (error) {
+                            console.log('⚠️ Supabase error, using localStorage:', error.message);
+                            logins = JSON.parse(localStorage.getItem('deviceLogins') || '[]');
+                        } else {
+                            logins = data || [];
+                            console.log('✅ Loaded', logins.length, 'logins from Supabase');
+                        }
+                    } catch (err) {
+                        console.log('Supabase error:', err);
+                        logins = JSON.parse(localStorage.getItem('deviceLogins') || '[]');
                     }
-                }
-                
-                // If no JSONBin data, also check localStorage
-                if (logins.length === 0) {
-                    logins = JSON.parse(localStorage.getItem('deviceLogins') || '[]');
-                }
-                
-                // Show/hide JSONBin status message
-                const statusBox = document.getElementById('jsonbinStatus');
-                if (JSONBIN_ID === "YOUR_JSONBIN_ID" && logins.length === 0) {
-                    if (statusBox) statusBox.style.display = 'block';
                 } else {
-                    if (statusBox) statusBox.style.display = 'none';
+                    logins = JSON.parse(localStorage.getItem('deviceLogins') || '[]');
                 }
                 
                 updateStats(logins);
                 populateTable(logins);
+                
+                // Show/hide Supabase status message
+                const statusBox = document.getElementById('jsonbinStatus');
+                if (!supabaseReady && logins.length === 0) {
+                    if (statusBox) statusBox.style.display = 'block';
+                } else {
+                    if (statusBox) statusBox.style.display = 'none';
+                }
             };
             
             loadData();
@@ -641,46 +615,56 @@
             if (confirm('⚠️ Are you sure you want to delete all login records? This cannot be undone.')) {
                 localStorage.removeItem('deviceLogins');
                 
-                // Also clear JSONBin if configured
-                if (JSONBIN_ID !== "YOUR_JSONBIN_ID") {
-                    fetch(`https://api.jsonbin.io/v3/b/${JSONBIN_ID}`, {
-                        method: 'PUT',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'X-Master-Key': JSONBIN_API_KEY,
-                            'X-Bin-Versioning': 'false'
-                        },
-                        body: JSON.stringify({ deviceLogins: [] })
-                    }).catch(err => {
-                        console.log('JSONBin clear error:', err);
-                    });
+                // Also clear from Supabase if available
+                if (supabaseReady) {
+                    supabase
+                        .from('device_logins')
+                        .delete()
+                        .gte('id', 0)
+                        .then(() => {
+                            loadLoginData();
+                            alert('✅ All login records have been cleared.');
+                        })
+                        .catch(err => {
+                            console.log('Supabase delete error:', err);
+                            loadLoginData();
+                            alert('✅ Local records cleared (cloud sync pending).');
+                        });
+                } else {
+                    loadLoginData();
+                    alert('✅ All login records have been cleared.');
                 }
-                
-                // Also clear Firebase if available
-                if (firebaseReady && db) {
-                    db.ref('deviceLogins').set(null).catch(err => {
-                        console.log('Firebase clear error:', err);
-                    });
-                }
-                
-                loadLoginData();
-                alert('✅ All login records have been cleared.');
             }
         }
 
-        // Real-time updates with Firebase
+        // Real-time updates with Supabase
         window.addEventListener('load', function() {
             const isLoggedIn = sessionStorage.getItem('adminLoggedIn');
             if (isLoggedIn === 'true') {
                 showDashboard();
                 loadLoginData();
-                // Auto-refresh every 1 second for real-time updates
-                setInterval(() => {
-                    const loggedIn = sessionStorage.getItem('adminLoggedIn');
-                    if (loggedIn === 'true') {
-                        loadLoginData();
-                    }
-                }, 1000);
+                
+                // Set up real-time subscription if Supabase is ready
+                if (supabaseReady) {
+                    realtimeSubscription = supabase
+                        .channel('device_logins_channel')
+                        .on('postgres_changes', 
+                            { event: '*', schema: 'public', table: 'device_logins'},
+                            (payload) => {
+                                console.log('Real-time update:', payload);
+                                loadLoginData();
+                            })
+                        .subscribe();
+                    console.log('✅ Real-time subscription active');
+                } else {
+                    // Fallback to polling every 1 second
+                    setInterval(() => {
+                        const loggedIn = sessionStorage.getItem('adminLoggedIn');
+                        if (loggedIn === 'true') {
+                            loadLoginData();
+                        }
+                    }, 1000);
+                }
             } else {
                 showLoginForm();
             }

@@ -666,97 +666,28 @@
     </audio>
 
     <!-- Firebase SDK -->
-    <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-app.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-database.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
     <script>
-        // JSONBin Configuration - REPLACE WITH YOUR BIN ID
-        // Get free bin at https://jsonbin.io/app/bins (takes 30 seconds)
-        const JSONBIN_ID = "YOUR_JSONBIN_ID";
-        const JSONBIN_API_KEY = "YOUR_JSONBIN_API_KEY";
+        // Supabase Configuration - REPLACE WITH YOUR CONFIG (takes 1 minute to setup)
+        // Go to https://supabase.com → Create new project → Copy URL and Anon Key
+        const SUPABASE_URL = "YOUR_SUPABASE_URL";
+        const SUPABASE_KEY = "YOUR_SUPABASE_KEY";
         
-        // Firebase Configuration (optional - not needed if using JSONBin)
-        const firebaseConfig = {
-            apiKey: "YOUR_API_KEY",
-            authDomain: "YOUR_AUTH_DOMAIN",
-            projectId: "YOUR_PROJECT_ID",
-            storageBucket: "YOUR_STORAGE_BUCKET",
-            messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
-            appId: "YOUR_APP_ID"
-        };
-
-        // Initialize Firebase (optional)
-        let firebaseReady = false;
-        let db = null;
+        // Initialize Supabase
+        let supabase = null;
+        let supabaseReady = false;
 
         try {
-            if (firebaseConfig.apiKey !== "YOUR_API_KEY") {
-                firebase.initializeApp(firebaseConfig);
-                db = firebase.database();
-                firebaseReady = true;
-                console.log("Firebase initialized successfully");
+            if (SUPABASE_URL !== "YOUR_SUPABASE_URL" && SUPABASE_KEY !== "YOUR_SUPABASE_KEY") {
+                supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+                supabaseReady = true;
+                console.log("✅ Supabase connected - cross-device sync ENABLED");
+            } else {
+                console.log("⚠️ Supabase not configured - logins stored locally only");
             }
         } catch (e) {
-            console.log("Firebase not configured - using JSONBin");
-        }
-
-        // BroadcastChannel for real-time updates between tabs
-        let bc = null;
-        try {
-            bc = new BroadcastChannel('flower_tracker');
-            bc.onmessage = (event) => {
-                if (event.data.type === 'deviceLogin') {
-                    console.log("Device login from another tab:", event.data);
-                }
-            };
-        } catch (e) {
-            console.log("BroadcastChannel not supported");
-        }
-
-        // JSONBin Helper Functions
-        async function syncToJSONBin(loginData) {
-            if (JSONBIN_ID === "YOUR_JSONBIN_ID") {
-                console.log("⚠️ JSONBin not configured - device logins only stored locally. Set up JSONBin to see logins from other devices.");
-                return;
-            }
-
-            try {
-                // Fetch current data from JSONBin
-                const fetchResponse = await fetch(`https://api.jsonbin.io/v3/b/${JSONBIN_ID}/latest`, {
-                    method: 'GET',
-                    headers: {
-                        'X-Master-Key': JSONBIN_API_KEY
-                    }
-                });
-
-                let allLogins = [];
-                if (fetchResponse.ok) {
-                    const data = await fetchResponse.json();
-                    allLogins = data.record?.deviceLogins || [];
-                }
-
-                // Add new login
-                allLogins.push(loginData);
-
-                // Push updated data back to JSONBin
-                const response = await fetch(`https://api.jsonbin.io/v3/b/${JSONBIN_ID}`, {
-                    method: 'PUT',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-Master-Key': JSONBIN_API_KEY,
-                        'X-Bin-Versioning': 'false'
-                    },
-                    body: JSON.stringify({ deviceLogins: allLogins })
-                });
-
-                if (response.ok) {
-                    console.log('✅ Device login synced to JSONBin - visible to all devices');
-                } else {
-                    console.log('⚠️ JSONBin sync failed:', response.status);
-                }
-            } catch (error) {
-                console.log('⚠️ JSONBin sync error:', error.message);
-            }
+            console.log("Supabase SDK error:", e.message);
         }
     </script>
 
@@ -1215,25 +1146,42 @@
             logins.push(loginData);
             localStorage.setItem('deviceLogins', JSON.stringify(logins));
             
-            // Sync to JSONBin for cross-device access
-            syncToJSONBin(loginData);
-            
-            // Also store in Firebase if available
-            if (firebaseReady && db) {
-                db.ref('deviceLogins').push(loginData).catch(err => {
-                    console.log('Firebase write error:', err);
-                });
+            // Sync to Supabase for cross-device access
+            if (supabaseReady) {
+                syncToSupabase(loginData);
             }
             
             // Broadcast to other tabs
-            if (bc) {
-                bc.postMessage({
-                    type: 'deviceLogin',
-                    data: loginData
-                });
+            if (typeof BroadcastChannel !== 'undefined') {
+                try {
+                    const bc = new BroadcastChannel('flower_tracker');
+                    bc.postMessage({
+                        type: 'deviceLogin',
+                        data: loginData
+                    });
+                } catch (e) {
+                    console.log("BroadcastChannel not available");
+                }
             }
             
             console.log('Device login tracked:', loginData);
+        }
+
+        // Sync login to Supabase
+        async function syncToSupabase(loginData) {
+            try {
+                const { data, error } = await supabase
+                    .from('device_logins')
+                    .insert([loginData]);
+
+                if (error) {
+                    console.log('⚠️ Supabase insert error:', error.message);
+                } else {
+                    console.log('✅ Login synced to Supabase');
+                }
+            } catch (err) {
+                console.log('Supabase sync error:', err.message);
+            }
         }
 
         // Initialize everything when page loads
