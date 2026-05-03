@@ -343,7 +343,6 @@
                 <p>1. Open the <code>index.html</code> page (flower page)</p>
                 <p>2. Click anywhere to create flowers</p>
                 <p>3. Return to this admin panel to see the login tracked</p>
-                <p>Or click the button below to add sample data for testing</p>
             </div>
 
             <div class="stats-grid">
@@ -367,7 +366,6 @@
 
             <div class="section-title">🔑 Login History</div>
             <div class="controls">
-                <button class="btn btn-secondary" onclick="addTestData()">🧪 Add Test Data</button>
                 <button class="btn btn-secondary" onclick="exportLogins()">📥 Export CSV</button>
                 <button class="btn btn-danger" onclick="clearLogs()">🗑️ Clear All Logs</button>
             </div>
@@ -378,8 +376,8 @@
                         <tr>
                             <th>#</th>
                             <th>Device Type</th>
+                            <th>Device Name</th>
                             <th>Browser & OS</th>
-                            <th>IP Detected</th>
                             <th>Screen Size</th>
                             <th>Login Date</th>
                             <th>Login Time</th>
@@ -472,6 +470,7 @@
 
             if (password === ADMIN_PASSWORD) {
                 sessionStorage.setItem('adminLoggedIn', 'true');
+                document.getElementById('adminPassword').value = '';
                 showDashboard();
                 loadLoginData();
             } else {
@@ -562,17 +561,33 @@
                 return;
             }
 
+            // Function to detect device name from userAgent
+            function getDeviceName(userAgent) {
+                if (/iPhone/.test(userAgent)) return '🍎 iPhone';
+                if (/iPad/.test(userAgent)) return '🍎 iPad';
+                if (/Android/.test(userAgent)) {
+                    if (/Pixel/.test(userAgent)) return '🔴 Google Pixel';
+                    if (/Samsung/.test(userAgent)) return '📱 Samsung';
+                    return '🔴 Android Phone';
+                }
+                if (/Windows/.test(userAgent)) return '🪟 Windows PC';
+                if (/Macintosh/.test(userAgent)) return '🍎 Mac';
+                if (/Linux/.test(userAgent)) return '🐧 Linux';
+                return '💻 Unknown Device';
+            }
+
             tbody.innerHTML = logins.reverse().map((login, index) => {
                 const date = new Date(login.timestamp);
                 const dateStr = date.toLocaleDateString();
                 const timeStr = date.toLocaleTimeString();
+                const deviceName = getDeviceName(login.userAgent);
 
                 return `
                     <tr>
                         <td>${index + 1}</td>
                         <td><span class="device-badge">${login.deviceType}</span></td>
+                        <td>${deviceName}</td>
                         <td>${login.userAgent}</td>
-                        <td>${login.screenResolution}</td>
                         <td>${login.screenWidth} x ${login.screenHeight}</td>
                         <td>${dateStr}</td>
                         <td>${timeStr}</td>
@@ -604,48 +619,6 @@
             a.click();
             window.URL.revokeObjectURL(url);
             document.body.removeChild(a);
-        }
-
-        function addTestData() {
-            const testData = [
-                {
-                    deviceType: 'Mobile',
-                    userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 15_0)',
-                    screenWidth: 390,
-                    screenHeight: 844,
-                    screenResolution: '390x844',
-                    timestamp: new Date(Date.now() - 5 * 60000).toISOString()
-                },
-                {
-                    deviceType: 'Desktop',
-                    userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
-                    screenWidth: 1920,
-                    screenHeight: 1080,
-                    screenResolution: '1920x1080',
-                    timestamp: new Date(Date.now() - 2 * 60000).toISOString()
-                },
-                {
-                    deviceType: 'Tablet',
-                    userAgent: 'Mozilla/5.0 (iPad; CPU OS 15_0)',
-                    screenWidth: 768,
-                    screenHeight: 1024,
-                    screenResolution: '768x1024',
-                    timestamp: new Date(Date.now() - 1 * 60000).toISOString()
-                }
-            ];
-
-            const logins = JSON.parse(localStorage.getItem('deviceLogins') || '[]');
-            logins.push(...testData);
-            localStorage.setItem('deviceLogins', JSON.stringify(logins));
-            loadLoginData();
-            
-            // Hide info box
-            const infoBox = document.getElementById('infoBox');
-            if (infoBox) {
-                infoBox.style.display = 'none';
-            }
-            
-            alert('✅ Test data added! You can now see sample device logins.');
         }
 
         function clearLogs() {

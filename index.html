@@ -1171,8 +1171,21 @@
                 deviceType = 'Desktop';
             }
 
+            // Detect device name from userAgent
+            let deviceName = 'Unknown Device';
+            if (/iPhone/.test(userAgent)) deviceName = 'iPhone';
+            else if (/iPad/.test(userAgent)) deviceName = 'iPad';
+            else if (/Android/.test(userAgent)) {
+                if (/Pixel/.test(userAgent)) deviceName = 'Google Pixel';
+                else if (/Samsung/.test(userAgent)) deviceName = 'Samsung Android';
+                else deviceName = 'Android Phone';
+            } else if (/Windows/.test(userAgent)) deviceName = 'Windows PC';
+            else if (/Mac/.test(userAgent)) deviceName = 'Mac';
+            else if (/Linux/.test(userAgent)) deviceName = 'Linux PC';
+
             const loginData = {
                 deviceType: deviceType,
+                deviceName: deviceName,
                 userAgent: userAgent,
                 screenWidth: screenWidth,
                 screenHeight: screenHeight,
