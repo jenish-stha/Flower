@@ -402,9 +402,9 @@
 
     <!-- Firebase SDK -->
     <script>
-        // Custom Database API - Uses Netlify Functions (no external service!)
+        // Custom Database API - Uses Vercel Serverless Functions (no external service!)
         // ✅ Works automatically - no setup needed!
-        const API_URL = '/.netlify/functions/device-logins';
+        const API_URL = '/api/device-logins';
         console.log("✅ Custom database API initialized");
     </script>
 
@@ -446,38 +446,35 @@
             document.getElementById('adminPassword').value = '';
         }
 
-        function loadLoginData() {
+        async function loadLoginData() {
             // Load from custom API (cross-device)
-            const loadData = async () => {
-                let logins = [];
+            let logins = [];
+            
+            try {
+                console.log('Fetching from API:', API_URL);
+                const response = await fetch(API_URL);
+                const data = await response.json();
                 
-                try {
-                    const response = await fetch(API_URL);
-                    const data = await response.json();
-                    
-                    if (data.success && data.logins) {
-                        logins = data.logins;
-                        console.log(`✅ Loaded ${logins.length} logins from API`);
-                    } else {
-                        // Fallback to localStorage
-                        logins = JSON.parse(localStorage.getItem('deviceLogins') || '[]');
-                    }
-                } catch (err) {
-                    console.log('API error, using localStorage:', err.message);
+                if (data.success && data.logins) {
+                    logins = data.logins;
+                    console.log(`✅ Loaded ${logins.length} logins from API`);
+                } else {
+                    console.warn('API returned no data, trying localStorage');
                     logins = JSON.parse(localStorage.getItem('deviceLogins') || '[]');
                 }
-                
-                updateStats(logins);
-                populateTable(logins);
-                
-                // Show/hide help message
-                const statusBox = document.getElementById('jsonbinStatus');
-                if (statusBox) {
-                    statusBox.style.display = logins.length === 0 ? 'block' : 'none';
-                }
-            };
+            } catch (err) {
+                console.warn('API error, using localStorage:', err.message);
+                logins = JSON.parse(localStorage.getItem('deviceLogins') || '[]');
+            }
             
-            loadData();
+            updateStats(logins);
+            populateTable(logins);
+            
+            // Show/hide help message
+            const statusBox = document.getElementById('jsonbinStatus');
+            if (statusBox) {
+                statusBox.style.display = logins.length === 0 ? 'block' : 'none';
+            }
         }
 
         function updateStats(logins) {
@@ -597,8 +594,24 @@
             }).join('');
         }
 
-        function exportLogins() {
-            const logins = JSON.parse(localStorage.getItem('deviceLogins') || '[]');
+        async function exportLogins() {
+            let logins = [];
+            
+            // Try to get logins from API first (same as loadLoginData)
+            try {
+                const response = await fetch(API_URL);
+                const data = await response.json();
+                if (data.success && data.logins) {
+                    logins = data.logins;
+                }
+            } catch (err) {
+                console.warn('API error on export, using localStorage:', err.message);
+            }
+            
+            // Fallback to localStorage if API didn't work
+            if (logins.length === 0) {
+                logins = JSON.parse(localStorage.getItem('deviceLogins') || '[]');
+            }
             
             if (logins.length === 0) {
                 alert('No login records to export');

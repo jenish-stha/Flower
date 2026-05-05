@@ -666,9 +666,9 @@
     </audio>
 
     <script>
-        // Custom Database API - Uses Netlify Functions (no external service!)
+        // Custom Database API - Uses Vercel Serverless Functions (no external service!)
         // ✅ Works automatically - no setup needed!
-        const API_URL = '/.netlify/functions/device-logins';
+        const API_URL = '/api/device-logins';
         console.log("✅ Custom database API initialized");
     </script>
 
@@ -1136,20 +1136,27 @@
         // Send login to custom API
         async function sendToAPI(loginData) {
             try {
+                console.log('Sending to API:', API_URL, loginData);
                 const response = await fetch(API_URL, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(loginData)
                 });
 
+                if (!response.ok) {
+                    console.warn(`⚠️ API responded with status ${response.status}`);
+                    return;
+                }
+
                 const result = await response.json();
                 if (result.success) {
                     console.log('✅ Synced to custom database');
                 } else {
-                    console.log('⚠️ API error:', result.error);
+                    console.warn('⚠️ API error:', result.error);
                 }
             } catch (error) {
-                console.log('API connection error:', error.message);
+                console.warn('API connection error:', error.message);
+                console.warn('Device login will be stored locally and synced when API is available');
             }
         }
 
